@@ -1,6 +1,5 @@
 import time
 import base64
-import aws_kinesis_agg.aggregator
 import boto3
 
 from botocore.exceptions import ClientError
