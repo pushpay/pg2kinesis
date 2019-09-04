@@ -61,7 +61,8 @@ class AggRecord(object):
         self.records = []
 
     def add_user_record(self, data, b64encode=False):
-        data = data.encode('utf8')
+        if isinstance(data, str):
+            data = data.encode('utf8')
 
         if len(data) > MAX_RECORD_BYTES:
             # Each record in the request can be as large as 1,000 KB (before 64-bit encoding)
