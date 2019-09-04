@@ -132,19 +132,19 @@ class FirehoseWriter(object):
             return
 
         records = agg_record.get_contents()
-        logger.info('Sending %s records. Size %s.' %
-                    (agg_record.get_num_user_records(), agg_record.get_size_bytes()))
+        logger.info('Sending %s records. Size %s.',
+                    agg_record.get_num_user_records(), agg_record.get_size_bytes())
 
         back_off = .05
         failed_put_count = 0
         while back_off < self.back_off_limit:
             try:
-                result = self._kinesis.put_record_batch(Records=records,
-                                                        DeliveryStreamName=self.stream_name)
+                result = self._firehose.put_record_batch(Records=records,
+                                                         DeliveryStreamName=self.firehose_name)
             except ClientError as e:
                 if e.response['Error']['Code'] == 'ServiceUnavailableException':
                     back_off *= 2
-                    logger.warning('Firehose throughput exceeded: sleeping %ss' % back_off)
+                    logger.warning('Firehose throughput exceeded: sleeping %ss', back_off)
                     time.sleep(back_off)
                 else:
                     logger.error(e)
