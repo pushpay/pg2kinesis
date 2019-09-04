@@ -153,7 +153,26 @@ class FirehoseWriter(object):
                 failed_put_count = result['FailedPutCount']
                 if failed_put_count > 0:
                     # retry the put with the successful records excluded
-                    pass
+                    logger.info('FailedPutCount: %s. Re-aggregating and retrying...', failed_put_count)
+                    agg_record = self._reaggregate_records(records, result['RequestResponses'])
+                    return self._send_agg_record(agg_record)
                 break
         else:
             raise Exception('ServiceUnavailableException caused a backed off too many times!')
+
+    def _reaggregate_records(self, original_records, responses):
+        """
+        Re-aggregate failed records for resubmission.
+
+        [RequestResponses] directly correlates with a record in the
+        request array using the same ordering, from the top to the
+        bottom. The response array always includes the same number of
+        records as the request array.
+        """
+        new_agg_record = AggRecord()
+        for i, response in enumerate(responses):
+            if response['ErrorCode'] and not response['RecordId']:
+                logger.debug('ErrorCode: "%s", ErrorMessage: "%s"', response['ErrorCode'], response['ErrorMessage'])
+                new_agg_record.add_user_record(original_records[i]['Data'])
+        return new_agg_record
+
