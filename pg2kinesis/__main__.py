@@ -5,6 +5,7 @@ import click
 
 from .slot import SlotReader
 from .formatter import get_formatter
+from .writer import get_writer
 from .stream import StreamWriter
 from .log import logger
 
@@ -32,8 +33,12 @@ from .log import logger
               help='Attempt to on start create a the slot.')
 @click.option('--recreate-slot', default=False, is_flag=True,
               help='Deletes the slot on start if it exists and then creates.')
+@click.option('--writer', '-w', default='stream',
+              type=click.Choice(['stream', 'log']),
+              help='Which writer to use')
 def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot_output_plugin,
-         stream_name, message_formatter, table_pat, full_change, create_slot, recreate_slot):
+         stream_name, message_formatter, table_pat, full_change, create_slot, recreate_slot,
+         writer):
 
     if full_change:
         assert message_formatter == 'CSVPayload', 'Full changes must be formatted as JSON.'
@@ -41,7 +46,10 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
 
     logger.info('Starting pg2kinesis')
     logger.info('Getting kinesis stream writer')
-    writer = StreamWriter(stream_name)
+    if writer == 'stream':
+        writer = StreamWriter(stream_name)
+    else:
+        writer = get_writer(writer, stream_name)
 
     with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
                     pg_slot_output_plugin) as reader:
