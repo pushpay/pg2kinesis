@@ -107,10 +107,8 @@ class FirehoseWriter(object):
         self._record_agg = FirehoseRecordAggregator()
         self._send_window = send_window
 
-        # waits up to 180 seconds for stream to exist
-        waiter = self._kinesis.get_waiter('stream_exists')
-
-        waiter.wait(StreamName=self.firehose_name)
+        # check firehose stream is available
+        self._firehose.describe_delivery_stream(DeliveryStreamName=self.firehose_name)
 
     def put_message(self, fmt_msg):
         agg_record = None
