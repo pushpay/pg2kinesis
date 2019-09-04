@@ -10,7 +10,7 @@ from collections import namedtuple
 
 # Tuples representing changes as pulled from database
 Change = namedtuple('Change', 'xid, table, operation, pkey')
-FullChange = namedtuple('FullChange', 'xid, timestamp,change')
+FullChange = namedtuple('FullChange', 'xid, timestamp, change')
 
 # Final product of Formatter, a Change and the Change formatted.
 Message = namedtuple('Message', 'change, fmt_msg')
