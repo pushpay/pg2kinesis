@@ -107,6 +107,7 @@ def test__preprocess_wal2json_change(formatter):
     formatter.cur_xact = ''
     result = formatter._preprocess_wal2json_change(u"""{
                 "xid": 101,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": []
             }""")
     assert result == []
@@ -115,6 +116,7 @@ def test__preprocess_wal2json_change(formatter):
     with mock.patch.object(formatter, '_log_and_raise') as mock_log_and_raise:
         formatter._preprocess_wal2json_change(u"""{
                 "xid": 100,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": [
                     {
                         "kind": "insert",
@@ -133,6 +135,7 @@ def test__preprocess_wal2json_change(formatter):
     formatter.cur_xact = '1337'
     change = formatter._preprocess_wal2json_change(u"""{
                 "xid": 1337,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": [
                     {
                         "kind": "insert",
@@ -152,6 +155,7 @@ def test__preprocess_wal2json_change(formatter):
 
     change = formatter._preprocess_wal2json_change(u"""{
                 "xid": 1337,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": [
                     {
                         "kind": "delete",
@@ -176,6 +180,7 @@ def test__preprocess_wal2json_full_change(formatter):
 
     result = formatter._preprocess_wal2json_change(u"""{
                 "xid": 101,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": []
             }""")
     assert result == []
@@ -185,6 +190,7 @@ def test__preprocess_wal2json_full_change(formatter):
     with mock.patch.object(formatter, '_log_and_raise') as mock_log_and_raise:
         formatter._preprocess_wal2json_change(u"""{
                 "xid": 100,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": [
                     {
                         "kind": "insert",
@@ -202,6 +208,7 @@ def test__preprocess_wal2json_full_change(formatter):
     formatter.cur_xact = '1337'
     change = formatter._preprocess_wal2json_change(u"""{
                 "xid": 1337,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": [
                     {
                         "kind": "insert",
@@ -226,6 +233,7 @@ def test__preprocess_wal2json_full_change(formatter):
 
     change = formatter._preprocess_wal2json_change(u"""{
                 "xid": 1337,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
                 "change": [
                     {
                         "kind": "delete",

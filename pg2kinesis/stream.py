@@ -16,17 +16,9 @@ class StreamWriter(object):
         self._record_agg = aws_kinesis_agg.aggregator.RecordAggregator()
         self._send_window = send_window
 
-        try:
-            self._kinesis.create_stream(StreamName=stream_name, ShardCount=1)
-        except ClientError as e:
-            # ResourceInUseException is raised when the stream already exists
-            if e.response['Error']['Code'] != 'ResourceInUseException':
-                logger.error(e)
-                raise
-
+        # waits up to 180 seconds for stream to exist
         waiter = self._kinesis.get_waiter('stream_exists')
 
-        # waits up to 180 seconds for stream to exist
         waiter.wait(StreamName=self.stream_name)
 
     def put_message(self, fmt_msg):

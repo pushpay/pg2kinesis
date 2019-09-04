@@ -10,7 +10,7 @@ from collections import namedtuple
 
 # Tuples representing changes as pulled from database
 Change = namedtuple('Change', 'xid, table, operation, pkey')
-FullChange = namedtuple('FullChange', 'xid, change')
+FullChange = namedtuple('FullChange', 'xid, timestamp, change')
 
 # Final product of Formatter, a Change and the Change formatted.
 Message = namedtuple('Message', 'change, fmt_msg')
@@ -114,7 +114,8 @@ class Formatter(object):
             schema = change['schema']
             if self.table_re.search(table_name):
                 if self.full_change:
-                    changes.append(FullChange(xid=self.cur_xact, change=change))
+                    timestamp = change_dictionary['timestamp']
+                    changes.append(FullChange(xid=self.cur_xact, timestamp=timestamp, change=change))
                 else:
                     try:
                         full_table = '{}.{}'.format(schema, table_name)
@@ -157,7 +158,7 @@ class CSVFormatter(Formatter):
 class CSVPayloadFormatter(Formatter):
     VERSION = 0
     def produce_formatted_message(self, change):
-        fmt_msg = '{},{},{}'.format(CSVFormatter.VERSION, CSVFormatter.TYPE,
+        fmt_msg = '{},{},{}\n'.format(CSVFormatter.VERSION, CSVFormatter.TYPE,
                                     json.dumps(change._asdict()))
         return Message(change=change, fmt_msg=fmt_msg)
 

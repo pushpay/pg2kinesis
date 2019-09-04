@@ -1,10 +1,12 @@
 from collections import namedtuple
 import threading
+import time
 
 import psycopg2
 import psycopg2.extras
 import psycopg2.extensions
 import psycopg2.errorcodes
+import psycopg2.errors
 
 from .log import logger
 
@@ -13,6 +15,8 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY, None)
 
 PrimaryKeyMapItem = namedtuple('PrimaryKeyMapItem', 'table_name, col_name, col_type, col_ord_pos')
 
+SLOT_IN_USE_RETRY_SECONDS = 30
+SLOT_IN_USE_RETRY_LIMIT = 30
 
 class SlotReader(object):
     PK_SQL = """
@@ -120,10 +124,27 @@ class SlotReader(object):
                 logger.info('Slot %s was not found.' % self.slot_name)
 
     def process_replication_stream(self, consume):
-        logger.info('Starting the consumption of slot "%s"!' % self.slot_name)
         if self.output_plugin == 'wal2json':
-            options = {'include-xids': 1}
+            options = {'include-xids': 1, 'include-timestamp': 1}
         else:
             options = None
-        self._repl_cursor.start_replication(self.slot_name, options=options)
+        logger.info('Output plugin options: "%s"' % options)
+        retries = 0
+        while True:
+            try:
+                self._repl_cursor.start_replication(self.slot_name, options=options)
+            except psycopg2.errors.ObjectInUse as e:
+                logger.warning(e)
+                logger.info('Replication slot "%s" is in use. Sleeping for %s and trying again...' %
+                            (self.slot_name, SLOT_IN_USE_RETRY_SECONDS))
+                retries += 1
+                time.sleep(SLOT_IN_USE_RETRY_SECONDS)
+                if retries >= SLOT_IN_USE_RETRY_LIMIT:
+                    logger.error('Retry limit exceeded')
+                    raise
+            else:
+                logger.info('Replication started on slot "%s"' % self.slot_name)
+                break
+        logger.info('Starting the consumption of slot "%s"!' % self.slot_name)
         self._repl_cursor.consume_stream(consume)
+
