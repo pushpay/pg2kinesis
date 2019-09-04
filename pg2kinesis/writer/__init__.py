@@ -1,8 +1,10 @@
 from .log import LogWriter
+from .firehose import FirehoseWriter
 
 
 WRITERS = {
-    'log': LogWriter
+    'log': LogWriter,
+    'firehose': FirehoseWriter
 }
 
 def get_writer(writer, name):

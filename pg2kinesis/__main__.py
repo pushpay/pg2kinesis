@@ -34,7 +34,7 @@ from .log import logger
 @click.option('--recreate-slot', default=False, is_flag=True,
               help='Deletes the slot on start if it exists and then creates.')
 @click.option('--writer', '-w', default='stream',
-              type=click.Choice(['stream', 'log']),
+              type=click.Choice(['stream', 'log', 'firehose']),
               help='Which writer to use')
 def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot_output_plugin,
          stream_name, message_formatter, table_pat, full_change, create_slot, recreate_slot,
@@ -45,10 +45,11 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
         assert pg_slot_output_plugin == 'wal2json', 'Full changes must use wal2json.'
 
     logger.info('Starting pg2kinesis')
-    logger.info('Getting kinesis stream writer')
     if writer == 'stream':
+        logger.info('Getting kinesis stream writer')
         writer = StreamWriter(stream_name)
     else:
+        logger.info('Getting %s writer', writer)
         writer = get_writer(writer, stream_name)
 
     with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
@@ -88,6 +89,7 @@ class Consume(object):
         self.msg_window_count += 1
 
         fmt_msgs = self.formatter(change.payload)
+        logger.info('Got %s change messages', len(fmt_msgs))
 
         progress_msg = 'xid: {:12} win_count:{:>10} win_size:{:>10}mb cum_count:{:>10} cum_size:{:>10}mb'
 
