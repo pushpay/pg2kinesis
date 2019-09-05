@@ -97,6 +97,8 @@ class AggRecord(object):
     def clear_and_get(self):
         records = self.records
         self.records = []
+        self.current_count = 0
+        self.current_bytes = 0
         return records
 
 
