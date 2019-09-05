@@ -76,7 +76,7 @@ class AggRecord(object):
             data = base64.b64encode(data)
         data_bytes = len(data)
 
-        if data_bytes + self.current_bytes >= MAX_BATCH_BYTES:
+        if data_bytes + self.current_bytes > MAX_BATCH_BYTES:
             # Each PutRecordBatch request supports up to 4MB for the entire request.
             return False
 
