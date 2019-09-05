@@ -6,7 +6,7 @@ import pytest
 import boto3
 from botocore.exceptions import ClientError
 
-from pg2kinesis.writer.firehose import FirehoseWriter
+from pg2kinesis.writer.firehose import FirehoseWriter, AggRecord, FirehoseRecordAggregator
 
 @pytest.fixture()
 def writer():
@@ -153,14 +153,86 @@ def test__send_agg_record_failed_put_count(writer):
     writer._firehose.put_record_batch.assert_called_with(DeliveryStreamName='blah', Records=[{'Data': b'blah'}])
 
 
-
-def test__reaggregate_records():
-    pass
+def test__reaggregate_records(writer):
+    original_records = [
+        {'Data': b'blob'}, {'Data': b'otherblob'}, {'Data': b'blah'}
+    ]
+    responses = [
+        {'RecordId': '1', 'ErrorCode': None, 'ErrorMessage': None},
+        {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+        {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+    ]
+    re_agg_record = writer._reaggregate_records(original_records, responses)
+    assert re_agg_record.get_num_user_records() == 2
+    # order must be the same
+    records = re_agg_record.get_contents()
+    assert records[0] == original_records[1]
+    assert records[1] == original_records[2]
 
 
 def test_agg_record():
-    pass
+    import pg2kinesis.writer.firehose as fh
+    with patch.object(fh, 'MAX_BATCH_COUNT', 5), patch.object(fh, 'MAX_BATCH_BYTES', 20), patch.object(fh, 'MAX_RECORD_BYTES', 10):
+        agg_record = AggRecord()
+
+        # exceeds individual record size
+        with pytest.raises(ValueError):
+            agg_record.add_user_record('blaaaaaaaaaaaaaaaaaaaaaaaah')
+
+        agg_record.add_user_record('føø')
+        agg_record.add_user_record('bar')
+        agg_record.add_user_record('baz')
+        agg_record.add_user_record('fizz')
+        agg_record.add_user_record('buzz')
+
+        assert agg_record.get_num_user_records() == 5
+        assert agg_record.get_size_bytes() == 19
+        # assert contents are in bytes
+        assert isinstance(agg_record.records[0]['Data'], bytes)
+
+        # reached the max of 5 records
+        result = agg_record.add_user_record('quux')
+        assert result is False
+        assert agg_record.get_num_user_records() == 5
+
+        records = agg_record.clear_and_get()
+        assert len(records) == 5
+        assert agg_record.get_num_user_records() == 0
+
+        # reached max bytes
+        agg_record.add_user_record('fooooooooo')
+        agg_record.add_user_record('baaaaaaaar')
+        agg_record.add_user_record('buzz')
+        assert agg_record.get_num_user_records() == 2
+        assert agg_record.get_size_bytes() == 20
+
+        # base64 flag
+        agg_record.clear_and_get()
+        agg_record.add_user_record('foobar', b64encode=True)
+        assert agg_record.records[0]['Data'] == b'Zm9vYmFy'
 
 
 def test_firehose_record_aggregator():
-    pass
+    import pg2kinesis.writer.firehose as fh
+    with patch.object(fh, 'MAX_BATCH_COUNT', 5), patch.object(fh, 'MAX_BATCH_BYTES', 20), patch.object(fh, 'MAX_RECORD_BYTES', 10):
+        aggregator = FirehoseRecordAggregator()
+
+        # exceeds individual record size
+        with pytest.raises(ValueError):
+            aggregator.add_user_record('blaaaaaaaaaaaaaaaaaaaaaaaah')
+
+        aggregator.add_user_record('føø')
+        aggregator.add_user_record('bar')
+        aggregator.add_user_record('baz')
+        aggregator.add_user_record('fizz')
+        result = aggregator.add_user_record('buzz')
+        assert result is None
+        assert aggregator.get_num_user_records() == 5
+
+        # reached the max of 5 records. return the aggregate so far and start over
+        agg_record = aggregator.add_user_record('quux')
+        assert agg_record is not None
+        assert agg_record.get_num_user_records() == 5
+
+        assert aggregator.get_num_user_records() == 1
+
