@@ -66,7 +66,7 @@ class AggRecord(object):
 
         if len(data) > MAX_RECORD_BYTES:
             # Each record in the request can be as large as 1,000 KB (before 64-bit encoding)
-            raise ValueError('data must be less than %s', MAX_RECORD_BYTES)
+            raise ValueError('data must be less than %s bytes', MAX_RECORD_BYTES)
 
         if self.current_count >= MAX_BATCH_COUNT:
             # Each PutRecordBatch request supports up to 500 records.
