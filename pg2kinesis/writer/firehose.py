@@ -103,7 +103,7 @@ class AggRecord(object):
 
 
 class FirehoseWriter(object):
-    def __init__(self, firehose_name, back_off_limit=60, send_window=13):
+    def __init__(self, firehose_name, back_off_limit=60, send_window=15):
         self.firehose_name = firehose_name
         self.back_off_limit = back_off_limit
         self.last_send = 0
@@ -122,7 +122,8 @@ class FirehoseWriter(object):
             agg_record = self._record_agg.add_user_record(fmt_msg.fmt_msg)
 
         # agg_record will be a complete record if aggregation is full.
-        if agg_record or (self._send_window and time.time() - self.last_send > self._send_window):
+        send_window_timeout = self._send_window and time.time() - self.last_send > self._send_window
+        if agg_record or send_window_timeout:
             agg_record = agg_record if agg_record else self._record_agg.clear_and_get()
             self._send_agg_record(agg_record)
             self.last_send = time.time()
