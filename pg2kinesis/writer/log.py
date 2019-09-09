@@ -8,7 +8,7 @@ class LogWriter(object):
     Basic writer that uses a logger to print messages.
     """
 
-    def __init__(self, logger_name):
+    def __init__(self, logger_name, send_window=None):
         self.logger = logging.Logger(logger_name)
         handler = logging.StreamHandler()
         formatter = logging.Formatter('%(name)s: %(asctime)s - %(message)s')

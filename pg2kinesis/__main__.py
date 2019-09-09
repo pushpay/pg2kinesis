@@ -36,9 +36,12 @@ from .log import logger
 @click.option('--writer', '-w', default='stream',
               type=click.Choice(['stream', 'log', 'firehose']),
               help='Which writer to use')
+@click.option('--send-window', '-t', default=15,
+              type=click.INT,
+              help='Number of seconds to wait before sending a non-full batch to the stream')
 def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot_output_plugin,
          stream_name, message_formatter, table_pat, full_change, create_slot, recreate_slot,
-         writer):
+         writer, send_window):
 
     if full_change:
         assert message_formatter == 'CSVPayload', 'Full changes must be formatted as JSON.'
@@ -50,7 +53,7 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
         writer = StreamWriter(stream_name)
     else:
         logger.info('Getting %s writer', writer)
-        writer = get_writer(writer, stream_name)
+        writer = get_writer(writer, stream_name, send_window=send_window)
 
     with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
                     pg_slot_output_plugin) as reader:
