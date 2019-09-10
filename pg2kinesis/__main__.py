@@ -14,7 +14,7 @@ from .log import logger
 @click.option('--pg-host', '-h', default='',
               help='Postgres server location. Leave empty if localhost.')
 @click.option('--pg-port', '-p', default='5432', help='Postgres port.')
-@click.option('--pg-user', '-u', help='Postgres user')
+@click.option('--pg-user', '-u', help='Postgres user', default='postgres')
 @click.option('--pg-sslmode', help='Postgres SSL mode', default='prefer')
 @click.option('--pg-slot-name', '-s', default='pg2kinesis',
               help='Postgres replication slot name.')
