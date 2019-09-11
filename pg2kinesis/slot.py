@@ -1,4 +1,5 @@
 from collections import namedtuple
+import os
 import threading
 import time
 
@@ -41,6 +42,7 @@ class SlotReader(object):
         # Cool fact: using connections as context manager doesn't close them on
         # success after leaving with block
         self._db_confg = dict(database=database, host=host, port=port, user=user, sslmode=sslmode)
+        self._db_conn_str = os.getenv('PG2KINESIS_POSTGRES_CONNECTION')
         self._repl_conn = None
         self._repl_cursor = None
         self._normal_conn = None
@@ -77,8 +79,15 @@ class SlotReader(object):
             pass
 
     def _get_connection(self, connection_factory=None, cursor_factory=None):
-        return psycopg2.connect(connection_factory=connection_factory,
-                                cursor_factory=cursor_factory, **self._db_confg)
+        if self._db_conn_str:
+            # connection string environment variable takes precedence
+            logger.info('Using PG2KINESIS_POSTGRES_CONNECTION connection string')
+            return psycopg2.connect(self._db_conn_str,
+                                    connection_factory=connection_factory,
+                                    cursor_factory=cursor_factory)
+        else:
+            return psycopg2.connect(connection_factory=connection_factory,
+                                    cursor_factory=cursor_factory, **self._db_confg)
 
     def _execute_and_fetch(self, sql, *params):
         with self._normal_conn.cursor() as cur:
