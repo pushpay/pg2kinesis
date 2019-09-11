@@ -24,7 +24,7 @@ from .log import logger
 @click.option('--stream-name', '-k', default='pg2kinesis',
               help='Kinesis stream name.')
 @click.option('--message-formatter', '-f', default='CSVPayload',
-              type=click.Choice(['CSVPayload', 'CSV']),
+              type=click.Choice(['CSVPayload', 'CSV', 'JSONLine']),
               help='Kinesis record formatter.')
 @click.option('--table-pat', help='Optional regular expression for table names.')
 @click.option('--full-change', default=False, is_flag=True,
@@ -44,7 +44,7 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
          writer, send_window):
 
     if full_change:
-        assert message_formatter == 'CSVPayload', 'Full changes must be formatted as JSON.'
+        assert message_formatter in ['CSVPayload', 'JSONLine'], 'Full changes must be formatted as JSON.'
         assert pg_slot_output_plugin == 'wal2json', 'Full changes must use wal2json.'
 
     logger.info('Starting pg2kinesis')

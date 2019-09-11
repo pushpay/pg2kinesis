@@ -158,6 +158,14 @@ class CSVFormatter(Formatter):
 class CSVPayloadFormatter(Formatter):
     VERSION = 0
     def produce_formatted_message(self, change):
+        fmt_msg = '{},{},{}\n'.format(CSVFormatter.VERSION, CSVFormatter.TYPE,
+                                    json.dumps(change._asdict()))
+        return Message(change=change, fmt_msg=fmt_msg)
+
+
+class JSONLineFormatter(Formatter):
+    VERSION = 0
+    def produce_formatted_message(self, change):
         fmt_msg = '{}\n'.format(json.dumps(change._asdict()))
         return Message(change=change, fmt_msg=fmt_msg)
 
