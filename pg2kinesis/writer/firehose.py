@@ -156,7 +156,7 @@ class FirehoseWriter(object):
                 failed_put_count = result['FailedPutCount']
                 if failed_put_count > 0:
                     # retry the put with the successful records excluded
-                    logger.info('FailedPutCount: %s. Re-aggregating and retrying...', failed_put_count)
+                    logger.warning('FailedPutCount: %s. Re-aggregating and retrying...', failed_put_count)
                     agg_record = self._reaggregate_records(records, result['RequestResponses'])
                     return self._send_agg_record(agg_record)
                 break
@@ -175,7 +175,7 @@ class FirehoseWriter(object):
         new_agg_record = AggRecord()
         for i, response in enumerate(responses):
             if response['ErrorCode']:
-                logger.debug('ErrorCode: "%s", ErrorMessage: "%s"', response['ErrorCode'], response['ErrorMessage'])
+                logger.warning('ErrorCode: "%s", ErrorMessage: "%s"', response['ErrorCode'], response['ErrorMessage'])
                 new_agg_record.add_user_record(original_records[i]['Data'])
         return new_agg_record
 
