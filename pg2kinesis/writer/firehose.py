@@ -134,14 +134,13 @@ class FirehoseWriter(object):
         if agg_record is None:
             return
 
-        records = agg_record.get_contents()
-        logger.info('Sending %s records. Size %s.',
-                    agg_record.get_num_user_records(), agg_record.get_size_bytes())
-
-        back_off = .05
+        back_off = 0.05
         failed_put_count = 0
         while back_off < self.back_off_limit:
             try:
+                records = agg_record.get_contents()
+                logger.info('Sending %s records. Size %s.',
+                            agg_record.get_num_user_records(), agg_record.get_size_bytes())
                 result = self._firehose.put_record_batch(Records=records,
                                                          DeliveryStreamName=self.firehose_name)
             except ClientError as e:
@@ -158,8 +157,11 @@ class FirehoseWriter(object):
                     # retry the put with the successful records excluded
                     logger.warning('FailedPutCount: %s. Re-aggregating and retrying...', failed_put_count)
                     agg_record = self._reaggregate_records(records, result['RequestResponses'])
-                    return self._send_agg_record(agg_record)
-                break
+                    back_off *= 2
+                    logger.warning('Firehose throughput exceeded: sleeping %ss', back_off)
+                    time.sleep(back_off)
+                else:
+                    break
         else:
             raise Exception('ServiceUnavailableException caused a backed off too many times!')
 
