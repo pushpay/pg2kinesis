@@ -125,8 +125,8 @@ def test__send_agg_record_failed_put_count(writer):
                 'Encrypted': False,
                 'RequestResponses': [
                     {'RecordId': '1', 'ErrorCode': None, 'ErrorMessage': None},
-                    {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
-                    {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+                    {'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+                    {'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
                 ]
             },
             {
@@ -134,7 +134,7 @@ def test__send_agg_record_failed_put_count(writer):
                 'Encrypted': False,
                 'RequestResponses': [
                     {'RecordId': '2', 'ErrorCode': None, 'ErrorMessage': None},
-                    {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+                    {'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
                 ]
             },
             {
@@ -159,8 +159,8 @@ def test__reaggregate_records(writer):
     ]
     responses = [
         {'RecordId': '1', 'ErrorCode': None, 'ErrorMessage': None},
-        {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
-        {'RecordId': None, 'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+        {'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
+        {'ErrorCode': 'Blah', 'ErrorMessage': 'Blah'},
     ]
     re_agg_record = writer._reaggregate_records(original_records, responses)
     assert re_agg_record.get_num_user_records() == 2
