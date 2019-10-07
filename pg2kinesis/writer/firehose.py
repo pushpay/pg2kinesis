@@ -177,7 +177,8 @@ class FirehoseWriter(object):
         new_agg_record = AggRecord()
         for i, response in enumerate(responses):
             if response.get('ErrorCode'):
-                logger.warning('ErrorCode: "%s", ErrorMessage: "%s"', response['ErrorCode'], response['ErrorMessage'])
+                if response['ErrorMessage'] != 'Slow down.':
+                    logger.warning('ErrorCode: "%s", ErrorMessage: "%s"', response['ErrorCode'], response['ErrorMessage'])
                 new_agg_record.add_user_record(original_records[i]['Data'])
         return new_agg_record
 
