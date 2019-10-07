@@ -2,6 +2,7 @@ from __future__ import division
 import time
 
 import click
+import psycopg2
 
 from .slot import SlotReader
 from .formatter import get_formatter
@@ -55,23 +56,33 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
         logger.info('Getting %s writer', writer)
         writer = get_writer(writer, stream_name, send_window=send_window)
 
-    with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
-                    pg_slot_output_plugin) as reader:
+    while True:
+        try:
+            with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
+                            pg_slot_output_plugin) as reader:
 
-        if recreate_slot:
-            reader.delete_slot()
-            reader.create_slot()
-        elif create_slot:
-            reader.create_slot()
+                if recreate_slot:
+                    reader.delete_slot()
+                    reader.create_slot()
+                elif create_slot:
+                    reader.create_slot()
 
-        pk_map = reader.primary_key_map
-        formatter = get_formatter(message_formatter, pk_map,
-                                  pg_slot_output_plugin, full_change, table_pat)
+                pk_map = reader.primary_key_map
+                formatter = get_formatter(message_formatter, pk_map,
+                                        pg_slot_output_plugin, full_change, table_pat)
 
-        consume = Consume(formatter, writer)
+                consume = Consume(formatter, writer)
 
-        # Blocking. Responds to Control-C.
-        reader.process_replication_stream(consume)
+                # Blocking. Responds to Control-C.
+                reader.process_replication_stream(consume)
+        except psycopg2.OperationalError as e:
+            if e.pgerror and 'server closed the connection unexpectedly' in e.pgerror:
+                # this is a workaround for Aurora frequently closing the connection
+                # start a new connection and continue replication
+                logger.warning(e)
+                logger.info('Restarting the connection...')
+            else:
+                raise
 
 class Consume(object):
     def __init__(self, formatter, writer):
