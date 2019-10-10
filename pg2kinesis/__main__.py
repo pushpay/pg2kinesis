@@ -102,9 +102,9 @@ class Consume(object):
         self.msg_window_size += change.data_size
         self.msg_window_count += 1
 
-        logger.info('ReplicationMessage: data_size=%s data_start=%s wal_end=%s send_time=%s', change.data_size, change.data_start, change.wal_end, change.send_time)
+        logger.debug('ReplicationMessage: data_size=%s data_start=%s wal_end=%s send_time=%s', change.data_size, change.data_start, change.wal_end, change.send_time)
         fmt_msgs = self.formatter(change.payload)
-        logger.info('Got %s change messages', len(fmt_msgs))
+        logger.debug('Got %s change messages', len(fmt_msgs))
 
         progress_msg = 'xid: {:12} win_count:{:>10} win_size:{:>10}mb cum_count:{:>10} cum_size:{:>10}mb'
 
