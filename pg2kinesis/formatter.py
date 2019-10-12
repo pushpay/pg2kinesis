@@ -184,7 +184,7 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
         :param change: a message payload chunk from postgres wal2json plugin.
         :return: A list of type FullChange (Change not yet supported)
         """
-        change_dict = None
+        change_dictionary = None
         if change.startswith(b'{"xid":'):
             # this chunk is the start of a full changeset
             # this only contains the metadata
@@ -197,28 +197,22 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
         elif self.cur_xact and change.startswith(b'{'):
             # this is the first change chunk in a full changeset
             # we should also already have the cur_xact data from a previous iteration
-            # transform the the chunk into a valid change dictionary with
-            # the xid and timestamp inserted
-            change = json.loads(change)
-            change_dict = {'xid': self.cur_xact, 'timestamp': self.cur_timestamp,
-                           'change': [change]}
+            change_dictionary = json.loads(change)
         elif self.cur_xact and change.startswith(b',{'):
             # this is the 2nd+ change chunk in a full changeset
-            # coerce it into valid json so we can parse it
+            # we should also already have the cur_xact data from a previous iteration
             change = change[1:]
-            change = json.loads(change)
-            change_dict = {'xid': self.cur_xact, 'timestamp': self.cur_timestamp,
-                           'change': [change]}
+            change_dictionary = json.loads(change)
         elif change == b']}':
             # this is the end of a changeset
             # discard it and clear the metadata
             self.cur_xact = ''
             self.cur_timestamp = ''
 
-        if not change_dict or not self.table_re.search(change['table']):
+        if not change_dictionary or not self.table_re.search(change_dictionary['table']):
             return []
         elif self.full_change:
-            return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dict)]
+            return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dictionary)]
         else:
             raise ValueError('ChunkJSONLineFormatter requires full_change=True')
 
