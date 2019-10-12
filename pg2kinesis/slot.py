@@ -38,7 +38,7 @@ class SlotReader(object):
     """
 
     def __init__(self, database, host, port, user, sslmode, slot_name,
-                 output_plugin='test_decoding'):
+                 output_plugin='test_decoding', wal2json_write_in_chunks=False):
         # Cool fact: using connections as context manager doesn't close them on
         # success after leaving with block
         self._db_confg = dict(database=database, host=host, port=port, user=user, sslmode=sslmode)
@@ -48,6 +48,7 @@ class SlotReader(object):
         self._normal_conn = None
         self.slot_name = slot_name
         self.output_plugin = output_plugin
+        self.wal2json_write_in_chunks = wal2json_write_in_chunks
         self.cur_lag = 0
 
     def __enter__(self):
@@ -135,6 +136,8 @@ class SlotReader(object):
     def process_replication_stream(self, consume):
         if self.output_plugin == 'wal2json':
             options = {'include-xids': 1, 'include-timestamp': 1}
+            if self.wal2json_write_in_chunks:
+                options['write-in-chunks'] = 1
         else:
             options = None
         logger.info('Output plugin options: "%s"' % options)

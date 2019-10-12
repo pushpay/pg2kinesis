@@ -34,6 +34,7 @@ class Formatter(object):
         self.table_pat = table_pat if table_pat is not None else r'[\w_\.]+'
         self.table_re = re.compile(self.table_pat)
         self.cur_xact = ''
+        self.cur_timestamp = ''
 
         for k, v in getattr(primary_key_map, 'iteritems', primary_key_map.items)():
             # ":" added to make later look up not need to trim trailing ":".
@@ -107,6 +108,7 @@ class Formatter(object):
             return None
 
         self.cur_xact = change_dictionary['xid']
+        self.cur_timestamp = change_dictionary['timestamp']
         changes = []
 
         for change in change_dictionary['change']:
@@ -114,8 +116,7 @@ class Formatter(object):
             schema = change['schema']
             if self.table_re.search(table_name):
                 if self.full_change:
-                    timestamp = change_dictionary['timestamp']
-                    changes.append(FullChange(xid=self.cur_xact, timestamp=timestamp, change=change))
+                    changes.append(FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change))
                 else:
                     try:
                         full_table = '{}.{}'.format(schema, table_name)
@@ -168,6 +169,58 @@ class JSONLineFormatter(Formatter):
     def produce_formatted_message(self, change):
         fmt_msg = '{}\n'.format(json.dumps(change._asdict()))
         return Message(change=change, fmt_msg=fmt_msg)
+
+class ChunkJSONLineFormatter(JSONLineFormatter):
+    VERSION = 0
+
+    def _preprocess_wal2json_change(self, change):
+        """
+        Takes a chunk of a changeset which can look like:
+
+        1. b'{"xid": "1111", "timestamp": "...", "change": ['
+        2. b'{"kind": "...", ...}' or b',{"kind": "...", ...}'
+        3. b']}'
+
+        :param change: a message payload chunk from postgres wal2json plugin.
+        :return: A list of type FullChange (Change not yet supported)
+        """
+        change_dict = None
+        if change.startswith(b'{"xid":'):
+            # this chunk is the start of a full changeset
+            # this only contains the metadata
+            # coerce it into valid json so we can parse it
+            # store the metadata and return
+            change += b']}'
+            change = json.loads(change)
+            self.cur_xact = change['xid']
+            self.cur_timestamp = change['timestamp']
+        elif self.cur_xact and change.startswith(b'{'):
+            # this is the first change chunk in a full changeset
+            # we should also already have the cur_xact data from a previous iteration
+            # transform the the chunk into a valid change dictionary with
+            # the xid and timestamp inserted
+            change = json.loads(change)
+            change_dict = {'xid': self.cur_xact, 'timestamp': self.cur_timestamp,
+                           'change': [change]}
+        elif self.cur_xact and change.startswith(b',{'):
+            # this is the 2nd+ change chunk in a full changeset
+            # coerce it into valid json so we can parse it
+            change = change[1:]
+            change = json.loads(change)
+            change_dict = {'xid': self.cur_xact, 'timestamp': self.cur_timestamp,
+                           'change': [change]}
+        elif change == b']}':
+            # this is the end of a changeset
+            # discard it and clear the metadata
+            self.cur_xact = ''
+            self.cur_timestamp = ''
+
+        if not change_dict or not self.table_re.search(change['table']):
+            return []
+        elif self.full_change:
+            return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dict)]
+        else:
+            raise ValueError('ChunkJSONLineFormatter requires full_change=True')
 
 
 def get_formatter(name, primary_key_map, output_plugin, full_change, table_pat):

@@ -25,7 +25,7 @@ from .log import logger
 @click.option('--stream-name', '-k', default='pg2kinesis',
               help='Kinesis stream name.')
 @click.option('--message-formatter', '-f', default='CSVPayload',
-              type=click.Choice(['CSVPayload', 'CSV', 'JSONLine']),
+              type=click.Choice(['CSVPayload', 'CSV', 'JSONLine', 'ChunkJSONLine']),
               help='Kinesis record formatter.')
 @click.option('--table-pat', help='Optional regular expression for table names.')
 @click.option('--full-change', default=False, is_flag=True,
@@ -40,13 +40,20 @@ from .log import logger
 @click.option('--send-window', '-t', default=15,
               type=click.INT,
               help='Number of seconds to wait before sending a non-full batch to the stream')
+@click.option('--wal2json-write-in-chunks', default=False,
+              is_flag=True,
+              help='Enable write-in-chunks option for wal2json')
 def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot_output_plugin,
          stream_name, message_formatter, table_pat, full_change, create_slot, recreate_slot,
-         writer, send_window):
+         writer, send_window, wal2json_write_in_chunks):
 
     if full_change:
         assert message_formatter in ['CSVPayload', 'JSONLine'], 'Full changes must be formatted as JSON.'
         assert pg_slot_output_plugin == 'wal2json', 'Full changes must use wal2json.'
+
+    if wal2json_write_in_chunks:
+        logger.info('write-in-chunks enabled, ignoring formatter option and using ChunkJSONLineFormatter')
+        message_formatter = 'ChunkJSONLine'
 
     logger.info('Starting pg2kinesis')
     if writer == 'stream':
@@ -59,7 +66,8 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
     while True:
         try:
             with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
-                            pg_slot_output_plugin) as reader:
+                            output_plugin=pg_slot_output_plugin,
+                            wal2json_write_in_chunks=wal2json_write_in_chunks) as reader:
 
                 if recreate_slot:
                     reader.delete_slot()
