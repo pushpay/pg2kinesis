@@ -25,7 +25,7 @@ from .log import logger
 @click.option('--stream-name', '-k', default='pg2kinesis',
               help='Kinesis stream name.')
 @click.option('--message-formatter', '-f', default='CSVPayload',
-              type=click.Choice(['CSVPayload', 'CSV', 'JSONLine', 'ChunkJSONLine']),
+              type=click.Choice(['CSVPayload', 'CSV', 'JSONLine']),
               help='Kinesis record formatter.')
 @click.option('--table-pat', help='Optional regular expression for table names.')
 @click.option('--full-change', default=False, is_flag=True,

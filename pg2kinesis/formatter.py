@@ -178,8 +178,13 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
         Takes a chunk of a changeset which can look like:
 
         1. b'{"xid": "1111", "timestamp": "...", "change": ['
-        2. b'{"kind": "...", ...}' or b',{"kind": "...", ...}'
-        3. b']}'
+        2. b'{"kind": "...", ...}'
+        3. b',{"kind": "...", ...}'
+        4. b']}'
+
+        Related:
+        https://github.com/eulerto/wal2json/issues/84
+        https://github.com/eulerto/wal2json/issues/46
 
         :param change: a message payload chunk from postgres wal2json plugin.
         :return: A list of type FullChange (Change not yet supported)
@@ -194,6 +199,7 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
             change = json.loads(change)
             self.cur_xact = change['xid']
             self.cur_timestamp = change['timestamp']
+            logger.info('New payload %s', self.cur_xact)
         elif self.cur_xact and change.startswith(b'{'):
             # this is the first change chunk in a full changeset
             # we should also already have the cur_xact data from a previous iteration
