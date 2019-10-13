@@ -78,3 +78,33 @@ def test__preprocess_wal2json_full_change(formatter):
                             "columnvalues": ["00079f3e-0479-4475-acff-4f225cc5188a"]
                         }
                 """)
+
+    # invalid states
+    formatter.cur_xact = 100
+    formatter.full_change = True
+    with pytest.raises(ValueError) as e:
+        formatter._preprocess_wal2json_change(b"""{"xid": 101,
+                "timestamp": "2019-09-04 01:27:59.195339+00",
+                "change": [""")
+
+    formatter.cur_xact = ''
+    with pytest.raises(ValueError) as e:
+        formatter._preprocess_wal2json_change(b"""{
+                        "kind": "insert",
+                        "schema": "public",
+                        "table": "test_table",
+                        "columnnames": ["uuid"],
+                        "columntypes": ["int4"],
+                        "columnvalues": ["00079f3e-0479-4475-acff-4f225cc5188a"]
+                    }
+            """)
+
+        formatter._preprocess_wal2json_change(b""",{
+                        "kind": "insert",
+                        "schema": "public",
+                        "table": "test_table",
+                        "columnnames": ["uuid"],
+                        "columntypes": ["int4"],
+                        "columnvalues": ["00079f3e-0479-4475-acff-4f225cc5188a"]
+                    }
+            """)
