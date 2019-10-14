@@ -34,6 +34,7 @@ class Formatter(object):
         self.table_pat = table_pat if table_pat is not None else r'[\w_\.]+'
         self.table_re = re.compile(self.table_pat)
         self.cur_xact = ''
+        self.cur_timestamp = ''
 
         for k, v in getattr(primary_key_map, 'iteritems', primary_key_map.items)():
             # ":" added to make later look up not need to trim trailing ":".
@@ -107,6 +108,7 @@ class Formatter(object):
             return None
 
         self.cur_xact = change_dictionary['xid']
+        self.cur_timestamp = change_dictionary['timestamp']
         changes = []
 
         for change in change_dictionary['change']:
@@ -114,8 +116,7 @@ class Formatter(object):
             schema = change['schema']
             if self.table_re.search(table_name):
                 if self.full_change:
-                    timestamp = change_dictionary['timestamp']
-                    changes.append(FullChange(xid=self.cur_xact, timestamp=timestamp, change=change))
+                    changes.append(FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change))
                 else:
                     try:
                         full_table = '{}.{}'.format(schema, table_name)
@@ -168,6 +169,74 @@ class JSONLineFormatter(Formatter):
     def produce_formatted_message(self, change):
         fmt_msg = '{}\n'.format(json.dumps(change._asdict()))
         return Message(change=change, fmt_msg=fmt_msg)
+
+class ChunkJSONLineFormatter(JSONLineFormatter):
+    VERSION = 0
+
+    def __init___(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transaction_change_count = 0
+
+    def _preprocess_wal2json_change(self, change):
+        """
+        Takes a chunk of a changeset which can look like:
+
+        1. b'{"xid": "1111", "timestamp": "...", "change": ['
+        2. b'{"kind": "...", ...}'
+        3. b',{"kind": "...", ...}'
+        4. b']}'
+
+        Related:
+        https://github.com/eulerto/wal2json/issues/84
+        https://github.com/eulerto/wal2json/issues/46
+
+        :param change: a message payload chunk from postgres wal2json plugin.
+        :return: A list of type FullChange (Change not yet supported)
+        """
+        if not self.full_change:
+            raise ValueError('ChunkJSONLineFormatter requires full_change=True')
+
+        change_dictionary = None
+        if change.startswith(b'{"xid":'):
+            # this chunk is the start of a full changeset
+            # this only contains the metadata
+            # coerce it into valid json so we can parse it
+            # store the metadata and return
+            if self.cur_xact:
+                raise ValueError('Invalid state. Previous cur_xact was not cleared.')
+            change += b']}'
+            change = json.loads(change)
+            self.transaction_change_count = 0
+            self.cur_xact = change['xid']
+            self.cur_timestamp = change['timestamp']
+            logger.debug('Start of transaction %s (%s)', self.cur_xact, self.cur_timestamp)
+        elif change.startswith(b'{'):
+            # this is the first change chunk in a full changeset
+            # we should also already have the cur_xact data from a previous iteration
+            if not self.cur_xact:
+                raise ValueError('Invalid state. cur_xact is not available.')
+            change_dictionary = json.loads(change)
+            self.transaction_change_count += 1
+        elif change.startswith(b',{'):
+            # this is the 2nd+ change chunk in a full changeset
+            # we should also already have the cur_xact data from a previous iteration
+            if not self.cur_xact:
+                raise ValueError('Invalid state. cur_xact is not available.')
+            change = change[1:]
+            change_dictionary = json.loads(change)
+            self.transaction_change_count += 1
+        elif change == b']}':
+            # this is the end of a changeset
+            # discard it and clear the metadata
+            logger.debug('End of transaction %s. Total changes: %s', self.cur_xact, self.transaction_change_count)
+            self.cur_xact = ''
+            self.cur_timestamp = ''
+            self.transaction_change_count = 0
+
+        if change_dictionary and self.table_re.search(change_dictionary['table']):
+            return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dictionary)]
+        else:
+            return []
 
 
 def get_formatter(name, primary_key_map, output_plugin, full_change, table_pat):

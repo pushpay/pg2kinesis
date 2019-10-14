@@ -6,7 +6,7 @@ import mock
 import pytest
 
 from pg2kinesis.slot import PrimaryKeyMapItem
-from pg2kinesis.formatter import Change, CSVFormatter, CSVPayloadFormatter, Formatter, get_formatter
+from pg2kinesis.formatter import Change, CSVFormatter, CSVPayloadFormatter, JSONLineFormatter, Formatter, get_formatter
 
 
 def get_formatter_produce_formatted_message(cls):
@@ -29,6 +29,10 @@ def test_CSVPayloadFormatter_produce_formatted_message():
     payload = result.fmt_msg.split(',', 2)[-1]
     assert json.loads(payload) == dict(xid=1, table=u'public.blue', operation=u'Update', pkey=u'123456')
 
+def test_JSONLineFormatter_produce_formatted_message():
+    result = get_formatter_produce_formatted_message(JSONLineFormatter)
+    payload = result.fmt_msg
+    assert json.loads(payload) == dict(xid=1, table=u'public.blue', operation=u'Update', pkey=u'123456')
 
 @pytest.fixture
 def pkey_map():
@@ -36,7 +40,7 @@ def pkey_map():
             'public.test_table2': PrimaryKeyMapItem(u'public.test_table2', u'name', u'character varying', 0)}
 
 
-@pytest.fixture(params=[CSVFormatter, CSVPayloadFormatter, Formatter])
+@pytest.fixture(params=[CSVFormatter, CSVPayloadFormatter, JSONLineFormatter, Formatter])
 def formatter(request, pkey_map):
     return request.param(pkey_map)
 
