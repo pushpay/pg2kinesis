@@ -30,6 +30,7 @@ def test__preprocess_wal2json_full_change(formatter):
     assert result == []
     assert formatter.cur_xact == 101
     assert formatter.cur_timestamp == '2019-09-04 01:27:59.195339+00'
+    assert formatter.transaction_change_count == 0
 
     # 2nd chunk
     change = formatter._preprocess_wal2json_change(b"""{
@@ -44,6 +45,7 @@ def test__preprocess_wal2json_full_change(formatter):
     assert change.xid == 101
     assert change.change['kind'] == 'insert'
     assert change.change['columnvalues'] == ['00079f3e-0479-4475-acff-4f225cc5188a']
+    assert formatter.transaction_change_count == 1
 
     # 3rd chunk
     change = formatter._preprocess_wal2json_change(b""",{
@@ -58,12 +60,14 @@ def test__preprocess_wal2json_full_change(formatter):
     assert change.xid == 101
     assert change.change['kind'] == 'insert'
     assert change.change['columnvalues'] == ['00079f3e-0479-4475-acff-4f225cc5188a']
+    assert formatter.transaction_change_count == 2
 
     # closing chunk
     result = formatter._preprocess_wal2json_change(b"]}")
     assert result == []
     assert formatter.cur_xact == ''
     assert formatter.cur_timestamp == ''
+    assert formatter.transaction_change_count == 0
 
     # only full_change is supported
     formatter.cur_xact = 101

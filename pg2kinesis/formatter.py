@@ -173,6 +173,10 @@ class JSONLineFormatter(Formatter):
 class ChunkJSONLineFormatter(JSONLineFormatter):
     VERSION = 0
 
+    def __init___(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transaction_change_count = 0
+
     def _preprocess_wal2json_change(self, change):
         """
         Takes a chunk of a changeset which can look like:
@@ -202,15 +206,17 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
                 raise ValueError('Invalid state. Previous cur_xact was not cleared.')
             change += b']}'
             change = json.loads(change)
+            self.transaction_change_count = 0
             self.cur_xact = change['xid']
             self.cur_timestamp = change['timestamp']
-            logger.info('Start of transaction %s', self.cur_xact)
+            logger.debug('Start of transaction %s (%s)', self.cur_xact, self.cur_timestamp)
         elif change.startswith(b'{'):
             # this is the first change chunk in a full changeset
             # we should also already have the cur_xact data from a previous iteration
             if not self.cur_xact:
                 raise ValueError('Invalid state. cur_xact is not available.')
             change_dictionary = json.loads(change)
+            self.transaction_change_count += 1
         elif change.startswith(b',{'):
             # this is the 2nd+ change chunk in a full changeset
             # we should also already have the cur_xact data from a previous iteration
@@ -218,12 +224,14 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
                 raise ValueError('Invalid state. cur_xact is not available.')
             change = change[1:]
             change_dictionary = json.loads(change)
+            self.transaction_change_count += 1
         elif change == b']}':
             # this is the end of a changeset
             # discard it and clear the metadata
-            logger.info('End of transaction %s', self.cur_xact)
+            logger.debug('End of transaction %s. Total changes: %s', self.cur_xact, self.transaction_change_count)
             self.cur_xact = ''
             self.cur_timestamp = ''
+            self.transaction_change_count = 0
 
         if change_dictionary and self.table_re.search(change_dictionary['table']):
             return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dictionary)]
