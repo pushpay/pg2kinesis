@@ -204,7 +204,7 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
             change = json.loads(change)
             self.cur_xact = change['xid']
             self.cur_timestamp = change['timestamp']
-            logger.info('New payload %s', self.cur_xact)
+            logger.info('Start of transaction %s', self.cur_xact)
         elif change.startswith(b'{'):
             # this is the first change chunk in a full changeset
             # we should also already have the cur_xact data from a previous iteration
@@ -221,6 +221,7 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
         elif change == b']}':
             # this is the end of a changeset
             # discard it and clear the metadata
+            logger.info('End of transaction %s', self.cur_xact)
             self.cur_xact = ''
             self.cur_timestamp = ''
 
