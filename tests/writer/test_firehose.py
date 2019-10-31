@@ -206,11 +206,6 @@ def test_agg_record():
         assert agg_record.get_num_user_records() == 2
         assert agg_record.get_size_bytes() == 20
 
-        # base64 flag
-        agg_record.clear_and_get()
-        agg_record.add_user_record('foobar', b64encode=True)
-        assert agg_record.records[0]['Data'] == b'Zm9vYmFy'
-
 
 def test_firehose_record_aggregator():
     import pg2kinesis.writer.firehose as fh

@@ -60,29 +60,29 @@ class AggRecord(object):
         self.current_bytes = 0
         self.records = []
 
-    def add_user_record(self, data, b64encode=False):
+    def add_user_record(self, data):
         if isinstance(data, str):
             data = data.encode('utf8')
 
-        if len(data) > MAX_RECORD_BYTES:
-            # Each record in the request can be as large as 1,000 KB (before 64-bit encoding)
-            raise ValueError('data must be less than %s bytes', MAX_RECORD_BYTES)
+        data_size = len(data)
+        if data_size > 1024 * 500:
+            logger.warning('data is > 500KB (%sB)', data_size)
+
+        if data_size > MAX_RECORD_BYTES:
+            # Each record in the request can be as large as 1,000 KB
+            raise ValueError('data must be less than %s bytes (%sB)', MAX_RECORD_BYTES, data_size)
 
         if self.current_count >= MAX_BATCH_COUNT:
             # Each PutRecordBatch request supports up to 500 records.
             return False
 
-        if b64encode:
-            data = base64.b64encode(data)
-        data_bytes = len(data)
-
-        if data_bytes + self.current_bytes > MAX_BATCH_BYTES:
+        if data_size + self.current_bytes > MAX_BATCH_BYTES:
             # Each PutRecordBatch request supports up to 4MB for the entire request.
             return False
 
         self.records.append({'Data': data})
         self.current_count += 1
-        self.current_bytes += data_bytes
+        self.current_bytes += data_size
         return True
 
     def get_contents(self):
