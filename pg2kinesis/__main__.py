@@ -43,9 +43,11 @@ from .log import logger
 @click.option('--wal2json-write-in-chunks', default=False,
               is_flag=True,
               help='Enable write-in-chunks option for wal2json')
+@click.option('--wal2json-filter-tables',
+              help='Filter tables for wal2json')
 def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot_output_plugin,
          stream_name, message_formatter, table_pat, full_change, create_slot, recreate_slot,
-         writer, send_window, wal2json_write_in_chunks):
+         writer, send_window, wal2json_write_in_chunks, wal2json_filter_tables):
 
     if full_change:
         assert message_formatter in ['CSVPayload', 'JSONLine'], 'Full changes must be formatted as JSON.'
@@ -54,6 +56,9 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
     if wal2json_write_in_chunks:
         logger.info('write-in-chunks enabled, ignoring formatter option and using ChunkJSONLineFormatter')
         message_formatter = 'ChunkJSONLine'
+
+    if wal2json_filter_tables:
+        logger.info('Excluding tables that match the filter: %s', wal2json_filter_tables)
 
     logger.info('Starting pg2kinesis')
     if writer == 'stream':
@@ -67,7 +72,8 @@ def main(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name, pg_slot
         try:
             with SlotReader(pg_dbname, pg_host, pg_port, pg_user, pg_sslmode, pg_slot_name,
                             output_plugin=pg_slot_output_plugin,
-                            wal2json_write_in_chunks=wal2json_write_in_chunks) as reader:
+                            wal2json_write_in_chunks=wal2json_write_in_chunks,
+                            wal2json_filter_tables=wal2json_filter_tables) as reader:
 
                 if recreate_slot:
                     reader.delete_slot()
