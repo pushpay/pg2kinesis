@@ -38,7 +38,7 @@ class SlotReader(object):
     """
 
     def __init__(self, database, host, port, user, sslmode, slot_name,
-                 output_plugin='test_decoding', wal2json_write_in_chunks=False):
+                 output_plugin='test_decoding', wal2json_write_in_chunks=False, wal2json_filter_tables=''):
         # Cool fact: using connections as context manager doesn't close them on
         # success after leaving with block
         self._db_confg = dict(database=database, host=host, port=port, user=user, sslmode=sslmode)
@@ -49,6 +49,7 @@ class SlotReader(object):
         self.slot_name = slot_name
         self.output_plugin = output_plugin
         self.wal2json_write_in_chunks = wal2json_write_in_chunks
+        self.wal2json_filter_tables = wal2json_filter_tables
         self.cur_lag = 0
 
     def __enter__(self):
@@ -138,6 +139,8 @@ class SlotReader(object):
             options = {'include-xids': 1, 'include-timestamp': 1}
             if self.wal2json_write_in_chunks:
                 options['write-in-chunks'] = 1
+            if self.wal2json_filter_tables:
+                options['filter-tables'] = self.wal2json_filter_tables
         else:
             options = None
         logger.info('Output plugin options: "%s"' % options)
