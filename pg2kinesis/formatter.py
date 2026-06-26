@@ -210,6 +210,14 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
             self.cur_xact = change['xid']
             self.cur_timestamp = change['timestamp']
             logger.debug('Start of transaction %s (%s)', self.cur_xact, self.cur_timestamp)
+        elif change.startswith(b'{"change":'):
+            # a non-transactional logical decoding message (e.g. a Debezium
+            # heartbeat). These are written to the WAL by pg_logical_emit_message
+            # and decoded by every slot on the database, so they appear here even
+            # though they are not ours. They have no xid or transaction framing,
+            # so discard them.
+            logger.debug('Skipping non-transactional message')
+            return []
         elif change.startswith(b'{'):
             # this is the first change chunk in a full changeset
             # we should also already have the cur_xact data from a previous iteration
@@ -233,10 +241,14 @@ class ChunkJSONLineFormatter(JSONLineFormatter):
             self.cur_timestamp = ''
             self.transaction_change_count = 0
 
-        if change_dictionary and self.table_re.search(change_dictionary['table']):
-            return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dictionary)]
-        else:
-            return []
+        if change_dictionary:
+            if change_dictionary.get('kind') == 'message':
+                # a transactional logical decoding message; it has no table, skip it
+                logger.debug('Skipping transactional message')
+                return []
+            if self.table_re.search(change_dictionary['table']):
+                return [FullChange(xid=self.cur_xact, timestamp=self.cur_timestamp, change=change_dictionary)]
+        return []
 
 
 def get_formatter(name, primary_key_map, output_plugin, full_change, table_pat):

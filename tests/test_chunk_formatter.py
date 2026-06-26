@@ -112,3 +112,38 @@ def test__preprocess_wal2json_full_change(formatter):
                         "columnvalues": ["00079f3e-0479-4475-acff-4f225cc5188a"]
                     }
             """)
+
+
+def test__preprocess_wal2json_skips_non_transactional_message(formatter):
+    # Non-transactional logical decoding messages (e.g. Debezium heartbeats) are
+    # written to the WAL by pg_logical_emit_message and decoded by every slot on
+    # the database, so they turn up here with no xid and no transaction framing.
+    formatter.cur_xact = ''
+    formatter.cur_timestamp = ''
+    formatter.full_change = True
+
+    result = formatter._preprocess_wal2json_change(
+        b'{"change":[{"kind":"message","transactional":false,'
+        b'"prefix":"debezium-heartbeat","content":"2026-06-02 23:40:00"}]}')
+
+    assert result == []
+    assert formatter.cur_xact == ''
+    assert formatter.cur_timestamp == ''
+
+
+def test__preprocess_wal2json_skips_transactional_message(formatter):
+    # A transactional message arrives inside normal transaction framing but has
+    # no table, so it must be skipped rather than blowing up on a missing key.
+    formatter.cur_xact = ''
+    formatter.cur_timestamp = ''
+    formatter.full_change = True
+
+    formatter._preprocess_wal2json_change(
+        b'{"xid": 202, "timestamp": "2026-06-02 23:40:00+00", "change": [')
+
+    result = formatter._preprocess_wal2json_change(
+        b'{"kind":"message","transactional":true,'
+        b'"prefix":"some-prefix","content":"hello"}')
+
+    assert result == []
+    assert formatter.cur_xact == 202
